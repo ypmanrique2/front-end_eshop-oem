@@ -50,9 +50,17 @@ apiClient.interceptors.request.use(
 
 /**
  * Response interceptor - Handle common error scenarios
+ * Unwrap ApiResponse wrapper from backend
  */
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If response has ApiResponse structure, unwrap it
+    const data = response.data;
+    if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+      response.data = data.data;
+    }
+    return response;
+  },
   async (error: AxiosError) => {
     // Handle 401 Unauthorized - Token expired or invalid
     if (error.response?.status === 401) {
@@ -72,6 +80,10 @@ export const authApi = {
   refresh: (refreshToken: string) =>
     apiClient.post("/auth/refresh", { refreshToken }),
   
+  /**
+   * Get current user info - triggers KeycloakUserSyncService
+   * This syncs the user from Keycloak to PostgreSQL on first login
+   */
   me: () => apiClient.get("/auth/me"),
   
   logout: (refreshToken: string) =>
@@ -169,15 +181,29 @@ export interface Product {
   imageUrl?: string;
 }
 
+/**
+ * User info from Keycloak JWT via /api/auth/me
+ * This triggers KeycloakUserSyncService to sync user to PostgreSQL
+ */
 export interface UserInfo {
-  sub: string;
+  sub: string;           // keycloakId from "sub" claim
   email?: string;
   name?: string;
   preferredUsername?: string;
-  givenName?: string;
-  familyName?: string;
+  givenName?: string;    // first name
+  familyName?: string;   // last name
   emailVerified?: boolean;
-  roles: string[];
+  roles: string[];      // Keycloak roles like ["uma_authorization", "default-roles-yadin-market", "admin"]
+}
+
+/**
+ * Token response from login
+ */
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn?: number;
+  tokenType?: string;
 }
 
 // Export the configured axios instance for custom usage
