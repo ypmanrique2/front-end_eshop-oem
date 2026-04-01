@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
-import { auth as authServer } from "@/auth";
 import Link from "next/link";
+import { useAuthSync } from "@/lib/hooks/use-auth-sync";
 
 interface Product {
   id: number;
@@ -16,23 +15,17 @@ interface Product {
 }
 
 export default function ProductsPage() {
-  const { data: session, status } = useSession();
+  // Usar el hook de sincronización automática
+  const { session, status, syncedUser, isSyncing, isAdmin } = useAuthSync();
+  
   const [products] = useState<Product[]>([
-    { id: 1, name: "Laptop Pro 15", description: "高性能笔记本电脑", price: 1299.99, stock: 15, category: "Electronics" },
-    { id: 2, name: "Wireless Mouse", description: "无线蓝牙鼠标", price: 29.99, stock: 50, category: "Accessories" },
-    { id: 3, name: "USB-C Hub", description: "多端口集线器", price: 49.99, stock: 30, category: "Accessories" },
-    { id: 4, name: "Mechanical Keyboard", description: "RGB机械键盘", price: 89.99, stock: 20, category: "Accessories" },
-    { id: 5, name: "Monitor 27\"", description: "4K高清显示器", price: 399.99, stock: 10, category: "Electronics" },
-    { id: 6, name: "Webcam HD", description: "1080P高清摄像头", price: 59.99, stock: 25, category: "Electronics" },
+    { id: 1, name: "Laptop Pro 15", description: "Potente laptop para profesionales", price: 1299.99, stock: 15, category: "Electronics" },
+    { id: 2, name: "Wireless Mouse", description: "Mouse inalámbrico Bluetooth", price: 29.99, stock: 50, category: "Accessories" },
+    { id: 3, name: "USB-C Hub", description: "Hub multiPuerto USB-C", price: 49.99, stock: 30, category: "Accessories" },
+    { id: 4, name: "Mechanical Keyboard", description: "Teclado mecánico RGB", price: 89.99, stock: 20, category: "Accessories" },
+    { id: 5, name: "Monitor 27\"", description: "Monitor 4K UHD", price: 399.99, stock: 10, category: "Electronics" },
+    { id: 6, name: "Webcam HD", description: "Cámara web 1080P", price: 59.99, stock: 25, category: "Electronics" },
   ]);
-
-  // Server-side auth check fallback
-  let isAdmin = false;
-  if (session?.user) {
-    // Check for admin role from JWT claims
-    const roles = (session as any)?.roles;
-    isAdmin = Array.isArray(roles) && roles.includes("admin");
-  }
 
   if (status === "loading") {
     return (
@@ -81,15 +74,28 @@ export default function ProductsPage() {
                 </Link>
               )}
               <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-600">{session.user?.email}</span>
-                <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full">
-                  {isAdmin ? "Admin" : "Cliente"}
+                {/* Info de sincronización */}
+                <span className="text-sm text-slate-600">
+                  {syncedUser?.email || session.user?.email}
+                </span>
+                {isSyncing && (
+                  <span className="text-xs text-blue-500 animate-pulse">sincronizando...</span>
+                )}
+                <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded">
+                  {isAdmin ? "Admin" : (syncedUser?.dbRole || "Cliente")}
                 </span>
               </div>
             </nav>
           </div>
         </div>
       </header>
+
+      {/* Debug info - solo en desarrollo */}
+      {process.env.NODE_ENV === "development" && syncedUser && (
+        <div className="bg-slate-800 text-slate-200 p-2 text-xs">
+          <pre>{JSON.stringify(syncedUser, null, 2)}</pre>
+        </div>
+      )}
 
       {/* Products Grid */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -136,10 +142,4 @@ export default function ProductsPage() {
       </main>
     </div>
   );
-}
-
-// Server component wrapper for initial data fetch
-export async function ProductsLayout({ children }: { children: React.ReactNode }) {
-  const session = await authServer();
-  return <>{children}</>;
 }
