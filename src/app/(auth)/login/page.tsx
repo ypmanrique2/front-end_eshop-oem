@@ -1,42 +1,63 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/products";
-  
+  const { data: session, status } = useSession();
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    username: "",
-    password: "",
-  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Si ya está logueado, redirigir automáticamente
+  useEffect(() => {
+    if (session) {
+      router.push("/products");
+      router.refresh();
+    }
+  }, [session, router]);
+
+  // Mostrar loading mientras verifica sesión
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
+  // Si ya tiene sesión, no mostrar login
+  if (session) {
+    return null;
+  }
+
+  /**
+   * OAuth2 Flow con Keycloak - FLUJO CORRECTO
+   * 
+   * Cuando se llama signIn('keycloak') SIN credenciales locales,
+   * NextAuth redirige al Authorization Endpoint de Keycloak.
+   * 
+   * El flujo es:
+   * 1. Click en botón → signIn('keycloak')
+   * 2. NextAuth → redirect a Keycloak OAuth2
+   * 3. Usuario se autentica en Keycloak
+   * 4. Keycloak → redirect con code
+   * 5. NextAuth exchange code → access_token
+   * 6. Sesión establecida con JWT de Keycloak
+   */
+  const handleKeycloakLogin = async () => {
     setIsLoading(true);
-
     try {
-      const result = await signIn("keycloak", {
-        username: formData.username,
-        password: formData.password,
-        redirect: false,
+      // signIn SIN credenciales = OAuth2/Authorization Code Flow
+      // Esto redirige directamente a Keycloak
+      await signIn("keycloak", {
+        callbackUrl: "/products",
+        redirect: true,
       });
-
-      if (result?.error) {
-        toast.error("Credenciales inválidas. Intenta de nuevo.");
-      } else {
-        toast.success("¡Bienvenido!");
-        router.push(callbackUrl);
-        router.refresh();
-      }
     } catch (error) {
-      toast.error("Error de conexión. Intenta más tarde.");
-    } finally {
+      console.error("Login error:", error);
+      toast.error("Error al iniciar sesión con Keycloak");
       setIsLoading(false);
     }
   };
@@ -49,43 +70,15 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold text-white mb-2">
             eShop <span className="text-indigo-400">OEM</span>
           </h1>
-          <p className="text-slate-400">Ingresa a tu cuenta</p>
+          <p className="text-slate-400">Ingresa con tu cuenta de Keycloak</p>
         </div>
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Usuario
-            </label>
-            <input
-              type="text"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              placeholder="Tu usuario"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
+        {/* Login con Keycloak OAuth2 - FLUJO CORRECTO */}
+        <div className="space-y-4">
           <button
-            type="submit"
+            onClick={handleKeycloakLogin}
             disabled={isLoading}
-            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-4 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
           >
             {isLoading ? (
               <>
@@ -93,19 +86,31 @@ export default function LoginPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <span>Ingresando...</span>
+                <span>Redirigiendo a Keycloak...</span>
               </>
             ) : (
-              <span>Iniciar Sesión</span>
+              <>
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <span>Iniciar Sesión con Keycloak</span>
+              </>
             )}
           </button>
-        </form>
+
+          {/* Info sobre el flujo */}
+          <div className="mt-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+            <p className="text-sm text-slate-300 text-center">
+              Serás redirigido a <span className="text-indigo-400 font-medium">Keycloak</span> para autenticarte de forma segura.
+            </p>
+          </div>
+        </div>
 
         {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-sm text-slate-500">
             ¿Necesitas ayuda?{" "}
-            <a href="#" className="text-indigo-400 hover:text-indigo-300">
+            <a href="mailto:yadin_65@hotmail.com" className="text-indigo-400 hover:text-indigo-300">
               Contacta al administrador
             </a>
           </p>
