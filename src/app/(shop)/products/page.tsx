@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuthSync } from "@/lib/hooks/use-auth-sync";
+import { signOut } from "next-auth/react";
 
 interface Product {
   id: number;
@@ -15,6 +17,7 @@ interface Product {
 }
 
 export default function ProductsPage() {
+  const router = useRouter();
   // Usar el hook de sincronización automática
   const { session, status, syncedUser, isSyncing, isAdmin } = useAuthSync();
   
@@ -84,18 +87,26 @@ export default function ProductsPage() {
                 <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded">
                   {isAdmin ? "Admin" : (syncedUser?.dbRole || "Cliente")}
                 </span>
+                <button
+                  onClick={async () => {
+                    // Primero cerrar sesión en NextAuth
+                    await signOut({ callbackUrl: "/login", redirect: false });
+                    // Luego redirigir al logout de Keycloak para cerrar completamente
+                    const keycloakLogoutUrl = `${process.env.AUTH_KEYCLOAK_ISSUER || "http://localhost:8081/realms/yadin-market"}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(window.location.origin + "/login")}&id_token_hint=none`;
+                    window.location.href = keycloakLogoutUrl;
+                  }}
+                  className="text-sm text-red-600 hover:text-red-800 font-medium p-1 rounded hover:bg-red-50 transition-colors"
+                  title="Cerrar Sesión"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </button>
               </div>
             </nav>
           </div>
         </div>
       </header>
-
-      {/* Debug info - solo en desarrollo */}
-      {process.env.NODE_ENV === "development" && syncedUser && (
-        <div className="bg-slate-800 text-slate-200 p-2 text-xs">
-          <pre>{JSON.stringify(syncedUser, null, 2)}</pre>
-        </div>
-      )}
 
       {/* Products Grid */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

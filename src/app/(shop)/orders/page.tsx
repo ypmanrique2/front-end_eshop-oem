@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -133,6 +133,21 @@ export default function OrdersPage() {
               <Link href="/orders" className="text-indigo-600 font-medium">
                 Mis Pedidos
               </Link>
+              <button
+                onClick={async () => {
+                  // Primero cerrar sesión en NextAuth
+                  await signOut({ callbackUrl: "/login", redirect: false });
+                  // Luego redirigir al logout de Keycloak para cerrar completamente
+                  const keycloakLogoutUrl = `${process.env.AUTH_KEYCLOAK_ISSUER || "http://localhost:8081/realms/yadin-market"}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(window.location.origin + "/login")}&id_token_hint=none`;
+                  window.location.href = keycloakLogoutUrl;
+                }}
+                className="text-red-600 hover:text-red-800 font-medium p-1 rounded hover:bg-red-50 transition-colors"
+                title="Cerrar Sesión"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
             </nav>
           </div>
         </div>

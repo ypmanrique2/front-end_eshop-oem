@@ -23,11 +23,19 @@ const apiClient = axios.create({
 /**
  * Request interceptor - Adds JWT token from NextAuth session to every request
  * This ensures the backend receives the original Keycloak access token
+ * 
+ * For client-side calls: uses getSession()
+ * For server-side calls (BFF): expects accessToken to be passed in config
  */
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
-      // Get the session to access the access token
+      // Check if accessToken was passed directly (for server-side/BFF calls)
+      if (config.headers.Authorization) {
+        return config;
+      }
+      
+      // Try to get session - works for client-side
       const session = await getSession();
       
       if (session?.accessToken) {
