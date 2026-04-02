@@ -1,8 +1,7 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
+import { toast } from "sonner";
 
 interface AddToCartButtonProps {
   productId: number;
@@ -14,34 +13,28 @@ interface AddToCartButtonProps {
 /**
  * AddToCartButton - Botón para añadir al carrito
  * 
- * FAANG'26: Si el usuario NO está autenticado, redirige a /login
- * Si está autenticado, añade al carrito directamente
+ * FAANG'26: "Zero Friction until Checkout"
+ * - Productos públicos (cualquiera puede ver)
+ * - Añadir al carrito ANÓNIMO (sin login)
+ * - Carrito se guarda en localStorage
+ * - Solo en CHECKOUT se requiere autenticación
  */
 export function AddToCartButton({ productId, productName, price, className = "" }: AddToCartButtonProps) {
-  const { data: session, status } = useSession();
   const { addItem } = useCart();
 
   const handleAddToCart = () => {
-    // Si no está autenticado, redirigir a login
-    if (status === "unauthenticated") {
-      window.location.href = "/login";
-      return;
-    }
-
-    // Si está loading, no hacer nada
-    if (status === "loading") {
-      return;
-    }
-
-    // Añadir al carrito
+    // Siempre añadir al carrito - sin importar si está autenticado
+    // El login solo se pide en el checkout (Auth Wall)
     addItem({
       productId,
       name: productName,
       price,
     });
+    
+    // Feedback visual
+    toast.success(`${productName} añadido al carrito`);
   };
 
-  // Siempre mostrar el botón - la lógica de redirección está dentro
   return (
     <button
       onClick={handleAddToCart}
@@ -54,7 +47,7 @@ export function AddToCartButton({ productId, productName, price, className = "" 
 
 /**
  * PopularProductsClient - Componente de cliente para la sección de productos populares
- * Necesita acceso al contexto del carrito y la sesión
+ * Muestra productos públicos - acceso SIN autenticación
  */
 interface Product {
   id: number;
@@ -66,8 +59,6 @@ interface Product {
 }
 
 export function PopularProductsClient({ products }: { products: Product[] }) {
-  const { data: session, status } = useSession();
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       {products.map((product) => (
@@ -97,7 +88,7 @@ export function PopularProductsClient({ products }: { products: Product[] }) {
                 ${product.price.toFixed(2)}
               </span>
               
-              {/* Botón Añadir al Carrito */}
+              {/* Botón Añadir al Carrito - PÚBLICO, sin login */}
               <AddToCartButton
                 productId={product.id}
                 productName={product.name}

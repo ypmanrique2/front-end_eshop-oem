@@ -1,58 +1,56 @@
 "use client";
 
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 
 /**
- * useLogout Hook - Manejo robusto de logout con Keycloak
+ * useLogout Hook - Manejo robusto de logout
  * 
- * FAANG'26: Maneja errores de Keycloak gracefully y redirige a /login
- * El id_token_hint es necesario para que Keycloak cierre la sesión correctamente
+ * FAANG'26: Siempre redirige al home "/" después de cerrar sesión
+ * No depende de Keycloak para el logout local
  */
 export function useLogout() {
-  const { data: session } = useSession();
   const router = useRouter();
 
   const logout = useCallback(async () => {
-    const keycloakIssuer = process.env.NEXT_PUBLIC_AUTH_KEYCLOAK_ISSUER || 
-      "http://localhost:8081/realms/yadin-market";
-
-    // 1. Primero cerrar sesión en NextAuth (limpia cookies locales)
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    
+    // 1. PRIMERO: Cerrar sesión en NextAuth (limpia cookies locales)
+    // redirect: false para tener control total del flujo
     await signOut({ 
-      callbackUrl: "/login", 
+      callbackUrl: "/", 
       redirect: false 
     });
 
-    // 2. Intentar logout en Keycloak con id_token_hint
-    // El id_token está disponible en session.idToken
-    const idToken = (session as any)?.idToken;
-    
-    if (idToken) {
-      try {
-        // URL de logout de Keycloak con id_token_hint
-        const keycloakLogoutUrl = new URL(`${keycloakIssuer}/protocol/openid-connect/logout`);
-        keycloakLogoutUrl.searchParams.set("post_logout_redirect_uri", window.location.origin + "/login");
-        keycloakLogoutUrl.searchParams.set("id_token_hint", idToken);
-        
-        // Redirigir a Keycloak logout
-        window.location.href = keycloakLogoutUrl.toString();
-        return;
-      } catch (error) {
-        console.warn("Keycloak logout with id_token failed, trying without it:", error);
-      }
+    // 2. Intentar logout en Keycloak en background (no bloqueante)
+    // Si falla, no importa - ya vamos a redirigir al home
+    try {
+      const keycloakIssuer = process.env.NEXT_PUBLIC_AUTH_KEYCLOAK_ISSUER || 
+        "http://localhost:8081/realms/yadin-market";
+      
+      // Intentar logout sin depender del resultado
+      // Usar fetch para no bloquear la UI
+      fetch(`${keycloakIssuer}/protocol/openid-connect/logout`, {
+        method: 'GET',
+        redirect: 'manual', // No seguir redirects automáticamente
+      }).catch(() => {
+        // Silenciar cualquier error - no nos importa
+      });
+    } catch (error) {
+      // Silenciar errores - no afectan el flujo
+      console.debug("Keycloak logout attempt:", error);
     }
 
-    // 3. Fallback: Si no hay idToken o falló, intentar sin id_token_hint
-    try {
-      const fallbackLogoutUrl = `${keycloakIssuer}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(window.location.origin + "/login")}`;
-      window.location.href = fallbackLogoutUrl;
-    } catch (error) {
-      // 4. Último recurso:直接将 a /login local
-      console.warn("Keycloak logout failed completely, redirecting to local /login:", error);
-      router.push("/login");
-    }
-  }, [session, router]);
+    // 3. SIEMPRE redirigir al home (fallback seguro)
+    // Esto se ejecuta sin importar si Keycloak falló
+    router.push("/");
+    
+    // Force refresh para asegurar清洁
+    setTimeout(() => {
+      router.refresh();
+    }, 100);
+  }, [router]);
 
   return { logout };
 }

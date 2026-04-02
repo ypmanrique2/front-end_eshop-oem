@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { toast } from "sonner";
 
 interface CartItem {
@@ -20,12 +20,56 @@ interface CartContextType {
   clearCart: () => void;
   total: number;
   itemCount: number;
+  sessionId: string;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const STORAGE_KEY = "eshop-anonymous-cart";
+const SESSION_KEY = "eshop-session-id";
+
+/**
+ * CartContext - Persistencia anónima FAANG'26
+ * 
+ * - Guarda en localStorage paraicarrito anónimo
+ * - Genera un sessionId único para el usuario anónimo
+ * - En checkout, el sessionId se asocia al usuario autenticado
+ */
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [sessionId, setSessionId] = useState<string>("");
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Generar sessionId único al cargar
+  useEffect(() => {
+    let session = localStorage.getItem(SESSION_KEY);
+    if (!session) {
+      session = `guest-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      localStorage.setItem(SESSION_KEY, session);
+    }
+    setSessionId(session);
+
+    // Cargar carrito desde localStorage
+    const savedCart = localStorage.getItem(STORAGE_KEY);
+    if (savedCart) {
+      try {
+        const parsed = JSON.parse(savedCart);
+        if (Array.isArray(parsed)) {
+          setItems(parsed);
+        }
+      } catch (e) {
+        console.warn("Error loading cart from localStorage:", e);
+      }
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Guardar en localStorage cada vez que cambie el carrito
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
+  }, [items, isLoaded]);
 
   const addItem = (product: Omit<CartItem, "id" | "quantity">, quantity: number = 1) => {
     setItems((prev) => {
@@ -65,6 +109,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => {
     setItems([]);
+    localStorage.removeItem(STORAGE_KEY);
     toast.info("Carrito limpiado");
   };
 
@@ -73,7 +118,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, total, itemCount }}
+      value={{ items, addItem, removeItem, updateQuantity, clearCart, total, itemCount, sessionId }}
     >
       {children}
     </CartContext.Provider>
