@@ -119,7 +119,7 @@ export const authConfig = {
   
   // Use JWT as session strategy (stateless)
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
     maxAge: 30 * 60, // 30 minutes - match Keycloak token expiry
   },
   

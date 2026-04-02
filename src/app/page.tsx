@@ -1,5 +1,41 @@
 import Link from "next/link";
 import { auth } from "@/auth";
+import { PopularProductsClient } from "@/components/add-to-cart-button";
+
+/**
+ * Landing Page - FAANG'26 Architecture
+ * 
+ * Muestra los 3 productos más populares con botón de añadir al carrito.
+ * Si el usuario no está autenticado, al hacer click en "Añadir" redirige a /login
+ */
+
+// Productos populares (mock - en producción vendría del backend)
+const POPULAR_PRODUCTS = [
+  {
+    id: 1,
+    name: "Laptop Pro 15",
+    description: "Potente laptop para profesionales",
+    price: 1299.99,
+    category: "Electronics",
+    image: "💻"
+  },
+  {
+    id: 2,
+    name: "Wireless Mouse",
+    description: "Mouse inalámbrico Bluetooth",
+    price: 29.99,
+    category: "Accessories",
+    image: "🖱️"
+  },
+  {
+    id: 3,
+    name: "Mechanical Keyboard",
+    description: "Teclado mecánico RGB",
+    price: 89.99,
+    category: "Accessories",
+    image: "⌨️"
+  }
+];
 
 export default async function HomePage() {
   const session = await auth();
@@ -87,6 +123,35 @@ export default async function HomePage() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Popular Products Section - Cliente component para sesión */}
+      <div className="bg-white/5 py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-white mb-4">
+              Productos Destacados
+            </h2>
+            <p className="text-slate-400">
+              Los productos más populares de nuestra tienda
+            </p>
+          </div>
+
+          <PopularProductsClient products={POPULAR_PRODUCTS} />
+
+          {/* Ver más productos */}
+          <div className="text-center mt-12">
+            <Link
+              href="/products"
+              className="inline-flex items-center px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl border border-white/20 transition-colors"
+            >
+              Ver todos los productos
+              <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </Link>
           </div>
         </div>
       </div>

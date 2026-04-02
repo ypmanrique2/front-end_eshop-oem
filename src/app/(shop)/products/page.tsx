@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthSync } from "@/lib/hooks/use-auth-sync";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { useLogout } from "@/lib/use-logout";
 
 interface Product {
   id: number;
@@ -17,18 +18,18 @@ interface Product {
 }
 
 export default function ProductsPage() {
-  const router = useRouter();
-  const { data: session } = useSession();
+  // Usar el hook de logout robusto
+  const { logout } = useLogout();
   // Usar el hook de sincronización automática
   const { session: authSession, status, syncedUser, isSyncing, isAdmin, syncWithBackend } = useAuthSync();
   
   // Forzar sincronización al cargar la página
   useEffect(() => {
-    if (status === "authenticated" && session?.accessToken && !syncedUser) {
+    if (status === "authenticated" && authSession?.accessToken && !syncedUser) {
       console.log(">>> products page: Force sync on mount...");
       syncWithBackend();
     }
-  }, [status, session?.accessToken, syncedUser, syncWithBackend]);
+  }, [status, authSession?.accessToken, syncedUser, syncWithBackend]);
   
   const [products] = useState<Product[]>([
     { id: 1, name: "Laptop Pro 15", description: "Potente laptop para profesionales", price: 1299.99, stock: 15, category: "Electronics" },
@@ -47,7 +48,7 @@ export default function ProductsPage() {
     );
   }
 
-  if (!session) {
+  if (!authSession) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -88,7 +89,7 @@ export default function ProductsPage() {
               <div className="flex items-center gap-2">
                 {/* Info de sincronización */}
                 <span className="text-sm text-slate-600">
-                  {syncedUser?.email || session.user?.email}
+                  {syncedUser?.email || authSession.user?.email}
                 </span>
                 {isSyncing && (
                   <span className="text-xs text-blue-500 animate-pulse">sincronizando...</span>
@@ -97,14 +98,7 @@ export default function ProductsPage() {
                   {isAdmin ? "Admin" : (syncedUser?.dbRole || "Cliente")}
                 </span>
                 <button
-                  onClick={async () => {
-                    // Primero cerrar sesión en NextAuth
-                    await signOut({ callbackUrl: "/login", redirect: false });
-                    // Luego redirigir al logout de Keycloak para cerrar completamente
-                    // NO usamos id_token_hint porque no lo tenemos disponible facilmente
-                    const keycloakLogoutUrl = `${process.env.AUTH_KEYCLOAK_ISSUER || "http://localhost:8081/realms/yadin-market"}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(window.location.origin + "/login")}`;
-                    window.location.href = keycloakLogoutUrl;
-                  }}
+                  onClick={logout}
                   className="text-sm text-red-600 hover:text-red-800 font-medium p-1 rounded hover:bg-red-50 transition-colors"
                   title="Cerrar Sesión"
                 >

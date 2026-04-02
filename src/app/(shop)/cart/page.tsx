@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useState } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
+import { useLogout } from "@/lib/use-logout";
 import { toast } from "sonner";
 
 export default function CartPage() {
   const { data: session, status } = useSession();
   const { items, removeItem, updateQuantity, clearCart, total, itemCount } = useCart();
+  const { logout } = useLogout();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const handleCheckout = async () => {
@@ -92,14 +94,7 @@ export default function CartPage() {
                 Mis Pedidos
               </Link>
               <button
-                onClick={async () => {
-                  // Primero cerrar sesión en NextAuth
-                  await signOut({ callbackUrl: "/login", redirect: false });
-                  // Luego redirigir al logout de Keycloak para cerrar completamente
-                  // NO usamos id_token_hint porque no lo tenemos disponible facilmente
-                  const keycloakLogoutUrl = `${process.env.AUTH_KEYCLOAK_ISSUER || "http://localhost:8081/realms/yadin-market"}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(window.location.origin + "/login")}`;
-                  window.location.href = keycloakLogoutUrl;
-                }}
+                onClick={logout}
                 className="text-red-600 hover:text-red-800 font-medium p-1 rounded hover:bg-red-50 transition-colors"
                 title="Cerrar Sesión"
               >
