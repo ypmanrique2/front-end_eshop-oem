@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthSync } from "@/lib/hooks/use-auth-sync";
@@ -20,7 +20,15 @@ export default function ProductsPage() {
   const router = useRouter();
   const { data: session } = useSession();
   // Usar el hook de sincronización automática
-  const { session: authSession, status, syncedUser, isSyncing, isAdmin } = useAuthSync();
+  const { session: authSession, status, syncedUser, isSyncing, isAdmin, syncWithBackend } = useAuthSync();
+  
+  // Forzar sincronización al cargar la página
+  useEffect(() => {
+    if (status === "authenticated" && session?.accessToken && !syncedUser) {
+      console.log(">>> products page: Force sync on mount...");
+      syncWithBackend();
+    }
+  }, [status, session?.accessToken, syncedUser, syncWithBackend]);
   
   const [products] = useState<Product[]>([
     { id: 1, name: "Laptop Pro 15", description: "Potente laptop para profesionales", price: 1299.99, stock: 15, category: "Electronics" },
