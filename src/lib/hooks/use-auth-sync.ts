@@ -40,6 +40,7 @@ export function useAuthSync() {
     setSyncError(null);
 
     try {
+      console.log(">>> useAuthSync: Calling /api/bff/auth/me...");
       const response = await fetch("/api/bff/auth/me", {
         method: "GET",
         headers: {
@@ -47,11 +48,16 @@ export function useAuthSync() {
         },
       });
 
+      console.log(">>> useAuthSync: Response status:", response.status);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(">>> useAuthSync: Error response:", errorText);
         throw new Error("Error sincronizando con backend");
       }
 
       const data = await response.json();
+      console.log(">>> useAuthSync: Response data:", JSON.stringify(data));
       
       // La respuesta del backend tiene formato { success: true, data: {...} }
       if (data.success && data.data) {

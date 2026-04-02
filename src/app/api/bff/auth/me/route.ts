@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import apiClient from "@/lib/api-client";
 
 /**
  * BFF Route: /api/bff/auth/me
@@ -26,8 +25,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Llamar al backend con el JWT de Keycloak en el header
-    // IMPORTANTE: Pasar el token explícitamente porque en server-side no funciona el interceptor
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api"}/auth/me`, {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+    console.log(">>> BFF calling backend:", `${backendUrl}/auth/me`);
+    
+    const response = await fetch(`${backendUrl}/auth/me`, {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${session.accessToken}`,
@@ -35,18 +36,22 @@ export async function GET(request: NextRequest) {
       },
     });
     
+    const responseText = await response.text();
+    console.log(">>> BFF backend response status:", response.status);
+    console.log(">>> BFF backend response body:", responseText);
+    
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
       return NextResponse.json(
-        { error: errorData.message || "Error al obtener información del usuario" },
+        { error: "Error al obtener información del usuario", details: responseText },
         { status: response.status }
       );
     }
     
-    const data = await response.json();
+    const data = JSON.parse(responseText);
+    console.log(">>> BFF parsed data:", JSON.stringify(data));
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error("Error fetching user info:", error);
+    console.error(">>> BFF Error:", error);
     return NextResponse.json(
       { error: error.message || "Error al obtener información del usuario" },
       { status: 500 }

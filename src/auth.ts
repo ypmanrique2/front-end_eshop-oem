@@ -112,6 +112,8 @@ export const authConfig = {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at;
+        // Guardar id_token para logout
+        token.idToken = account.id_token;
       }
       
       // Credentials login - user object contains the accessToken from authorize()
@@ -152,6 +154,11 @@ export const authConfig = {
       // Pass refresh token if available
       if (token.refreshToken) {
         session.refreshToken = token.refreshToken;
+      }
+      
+      // Pass id_token for logout
+      if (token.idToken) {
+        session.idToken = token.idToken;
       }
       
       // Pass Keycloak user info to session

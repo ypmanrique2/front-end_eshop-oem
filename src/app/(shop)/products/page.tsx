@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthSync } from "@/lib/hooks/use-auth-sync";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 
 interface Product {
   id: number;
@@ -18,8 +18,9 @@ interface Product {
 
 export default function ProductsPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   // Usar el hook de sincronización automática
-  const { session, status, syncedUser, isSyncing, isAdmin } = useAuthSync();
+  const { session: authSession, status, syncedUser, isSyncing, isAdmin } = useAuthSync();
   
   const [products] = useState<Product[]>([
     { id: 1, name: "Laptop Pro 15", description: "Potente laptop para profesionales", price: 1299.99, stock: 15, category: "Electronics" },
@@ -92,7 +93,8 @@ export default function ProductsPage() {
                     // Primero cerrar sesión en NextAuth
                     await signOut({ callbackUrl: "/login", redirect: false });
                     // Luego redirigir al logout de Keycloak para cerrar completamente
-                    const keycloakLogoutUrl = `${process.env.AUTH_KEYCLOAK_ISSUER || "http://localhost:8081/realms/yadin-market"}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(window.location.origin + "/login")}&id_token_hint=none`;
+                    // NO usamos id_token_hint porque no lo tenemos disponible facilmente
+                    const keycloakLogoutUrl = `${process.env.AUTH_KEYCLOAK_ISSUER || "http://localhost:8081/realms/yadin-market"}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(window.location.origin + "/login")}`;
                     window.location.href = keycloakLogoutUrl;
                   }}
                   className="text-sm text-red-600 hover:text-red-800 font-medium p-1 rounded hover:bg-red-50 transition-colors"
