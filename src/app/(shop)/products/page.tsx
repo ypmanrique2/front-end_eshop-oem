@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthSync } from "@/lib/hooks/use-auth-sync";
-import { useSession } from "next-auth/react";
-import { useLogout } from "@/lib/use-logout";
+import { useCart } from "@/lib/cart-context";
+import { signOut, useSession } from "next-auth/react";
 
 interface Product {
   id: number;
@@ -18,18 +18,12 @@ interface Product {
 }
 
 export default function ProductsPage() {
-  // Usar el hook de logout robusto
-  const { logout } = useLogout();
-  // Usar el hook de sincronización automática
-  const { session: authSession, status, syncedUser, isSyncing, isAdmin, syncWithBackend } = useAuthSync();
+  const router = useRouter();
+  const { data: session } = useSession();
+  const { addItem, itemCount } = useCart();
   
-  // Forzar sincronización al cargar la página
-  useEffect(() => {
-    if (status === "authenticated" && authSession?.accessToken && !syncedUser) {
-      console.log(">>> products page: Force sync on mount...");
-      syncWithBackend();
-    }
-  }, [status, authSession?.accessToken, syncedUser, syncWithBackend]);
+  // Usar el hook de sincronización automática - SOLO cuando hay sesión
+  const { syncedUser, isSyncing, isAdmin } = useAuthSync();
   
   const [products] = useState<Product[]>([
     { id: 1, name: "Laptop Pro 15", description: "Potente laptop para profesionales", price: 1299.99, stock: 15, category: "Electronics" },
@@ -40,43 +34,93 @@ export default function ProductsPage() {
     { id: 6, name: "Webcam HD", description: "Cámara web 1080P", price: 59.99, stock: 25, category: "Electronics" },
   ]);
 
-  if (status === "loading") {
+  const handleAddToCart = (product: Product) => {
+    addItem({
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+    });
+  };
+
+  // Si NO hay sesión, mostrar página pública con botón de login
+  if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="min-h-screen bg-slate-50">
+        <header className="bg-white shadow-sm border-b border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <Link href="/" className="text-2xl font-bold text-slate-900">
+                eShop <span className="text-indigo-600">OEM</span>
+              </Link>
+              <nav className="flex items-center gap-6">
+                <Link href="/products" className="text-indigo-600 font-medium">
+                  Productos
+                </Link>
+                <Link href="/cart" className="text-slate-600 hover:text-indigo-600 font-medium flex items-center gap-1">
+                  Carrito
+                  {itemCount > 0 && (
+                    <span className="bg-indigo-600 text-white text-xs rounded-full px-2 py-0.5">
+                      {itemCount}
+                    </span>
+                  )}
+                </Link>
+                <Link href="/login" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
+                  Login
+                </Link>
+              </nav>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h2 className="text-xl font-semibold text-slate-900 mb-6">Catálogo de Productos</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {products.map((product) => (
+              <div key={product.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+                <div className="h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                  <span className="text-4xl">📦</span>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-slate-900">{product.name}</h3>
+                  <p className="text-sm text-slate-500">{product.description}</p>
+                  <div className="flex items-center justify-between mt-4">
+                    <span className="text-xl font-bold text-indigo-600">${product.price.toFixed(2)}</span>
+                    <button 
+                      onClick={() => handleAddToCart(product)}
+                      className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
       </div>
     );
   }
 
-  if (!authSession) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-800 mb-4">Acceso Restringido</h2>
-          <p className="text-slate-600 mb-4">Debes iniciar sesión para ver los productos</p>
-          <Link href="/login" className="text-indigo-600 hover:text-indigo-800 font-medium">
-            Iniciar Sesión
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+  // SI hay sesión - mostrar página con usuario logueado
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-slate-900">
+            <Link href="/" className="text-2xl font-bold text-slate-900">
               eShop <span className="text-indigo-600">OEM</span>
-            </h1>
+            </Link>
             <nav className="flex items-center gap-6">
-              <Link href="/products" className="text-slate-600 hover:text-indigo-600 font-medium">
+              <Link href="/products" className="text-indigo-600 font-medium">
                 Productos
               </Link>
-              <Link href="/cart" className="text-slate-600 hover:text-indigo-600 font-medium">
+              <Link href="/cart" className="text-slate-600 hover:text-indigo-600 font-medium flex items-center gap-1">
                 Carrito
+                {itemCount > 0 && (
+                  <span className="bg-indigo-600 text-white text-xs rounded-full px-2 py-0.5">
+                    {itemCount}
+                  </span>
+                )}
               </Link>
               <Link href="/orders" className="text-slate-600 hover:text-indigo-600 font-medium">
                 Mis Pedidos
@@ -87,18 +131,21 @@ export default function ProductsPage() {
                 </Link>
               )}
               <div className="flex items-center gap-2">
-                {/* Info de sincronización */}
-                <span className="text-sm text-slate-600">
-                  {syncedUser?.email || authSession.user?.email}
-                </span>
                 {isSyncing && (
                   <span className="text-xs text-blue-500 animate-pulse">sincronizando...</span>
                 )}
+                <span className="text-sm text-slate-600">
+                  {syncedUser?.email || session.user?.email}
+                </span>
                 <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded">
                   {isAdmin ? "Admin" : (syncedUser?.dbRole || "Cliente")}
                 </span>
                 <button
-                  onClick={logout}
+                  onClick={async () => {
+                    await signOut({ callbackUrl: "/login", redirect: false });
+                    const keycloakLogoutUrl = `${process.env.AUTH_KEYCLOAK_ISSUER || "http://localhost:8081/realms/yadin-market"}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(window.location.origin + "/login")}`;
+                    window.location.href = keycloakLogoutUrl;
+                  }}
                   className="text-sm text-red-600 hover:text-red-800 font-medium p-1 rounded hover:bg-red-50 transition-colors"
                   title="Cerrar Sesión"
                 >
@@ -112,19 +159,8 @@ export default function ProductsPage() {
         </div>
       </header>
 
-      {/* Products Grid */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-slate-900">Catálogo de Productos</h2>
-          <div className="flex gap-2">
-            <input
-              type="search"
-              placeholder="Buscar productos..."
-              className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
+        <h2 className="text-xl font-semibold text-slate-900 mb-6">Catálogo de Productos</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product) => (
             <div key={product.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -147,7 +183,10 @@ export default function ProductsPage() {
                     {product.stock > 0 ? `${product.stock} disponibles` : "Sin stock"}
                   </span>
                 </div>
-                <button className="w-full mt-4 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
+                <button 
+                  onClick={() => handleAddToCart(product)}
+                  className="w-full mt-4 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
+                >
                   Agregar al Carrito
                 </button>
               </div>

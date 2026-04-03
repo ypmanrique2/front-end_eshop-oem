@@ -1,21 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useCart } from "@/lib/cart-context";
 import { useLogout } from "@/lib/use-logout";
 import { toast } from "sonner";
 
+/**
+ * CartPage - Carrito PÚBLICO FAANG'26
+ * 
+ * - Cualquier usuario puede ver su carrito (sin login)
+ * - Redirige a /checkout para completar la compra
+ */
 export default function CartPage() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const { items, removeItem, updateQuantity, clearCart, total, itemCount } = useCart();
   const { logout } = useLogout();
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  const handleCheckout = async () => {
+  const handleCheckout = () => {
+    // AUTH WALL - Solo usuarios autenticados pueden comprar
     if (!session) {
       toast.error("Debes iniciar sesión para completar tu compra");
+      window.location.href = "/login?callbackUrl=/checkout";
       return;
     }
 
@@ -24,84 +30,46 @@ export default function CartPage() {
       return;
     }
 
-    setIsCheckingOut(true);
-
-    try {
-      // Create order in backend
-      const orderResponse = await fetch("/api/bff/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombreCliente: session.user?.email || "Cliente",
-          esPedidoInterno: false,
-        }),
-      });
-
-      if (!orderResponse.ok) {
-        throw new Error("Error al crear el pedido");
-      }
-
-      const order = await orderResponse.json();
-
-      // Add items to order
-      for (const item of items) {
-        await fetch(`/api/bff/orders/${order.data.id}/items`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            productId: item.productId,
-            cantidad: item.quantity,
-          }),
-        });
-      }
-
-      clearCart();
-      toast.success("¡Pedido creado exitosamente! Revisa tu correo para la factura.");
-      window.location.href = "/orders";
-    } catch (error) {
-      console.error("Checkout error:", error);
-      toast.error("Error al procesar el pedido. Intenta de nuevo.");
-    } finally {
-      setIsCheckingOut(false);
-    }
+    // Redirigir a checkout
+    window.location.href = "/checkout";
   };
-
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
+      {/* Header - Público */}
       <header className="bg-white shadow-sm border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-slate-900">
+            <Link href="/" className="text-2xl font-bold text-slate-900">
               eShop <span className="text-indigo-600">OEM</span>
-            </h1>
+            </Link>
             <nav className="flex items-center gap-6">
+              <Link href="/" className="text-slate-600 hover:text-indigo-600 font-medium">
+                Inicio
+              </Link>
               <Link href="/products" className="text-slate-600 hover:text-indigo-600 font-medium">
                 Productos
               </Link>
-              <Link href="/cart" className="text-indigo-600 font-medium">
-                Carrito ({itemCount})
+              <Link href="/cart" className="text-indigo-600 font-medium flex items-center gap-1">
+                Carrito
+                {itemCount > 0 && (
+                  <span className="bg-indigo-600 text-white text-xs rounded-full px-2 py-0.5">
+                    {itemCount}
+                  </span>
+                )}
               </Link>
-              <Link href="/orders" className="text-slate-600 hover:text-indigo-600 font-medium">
-                Mis Pedidos
-              </Link>
-              <button
-                onClick={logout}
-                className="text-red-600 hover:text-red-800 font-medium p-1 rounded hover:bg-red-50 transition-colors"
-                title="Cerrar Sesión"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </button>
+              {session ? (
+                <button
+                  onClick={logout}
+                  className="text-red-600 hover:text-red-800 font-medium"
+                >
+                  Cerrar Sesión
+                </button>
+              ) : (
+                <Link href="/login" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
+                  Login
+                </Link>
+              )}
             </nav>
           </div>
         </div>
@@ -193,27 +161,16 @@ export default function CartPage() {
 
                 <button
                   onClick={handleCheckout}
-                  disabled={isCheckingOut || !session}
-                  className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2"
                 >
-                  {isCheckingOut ? (
-                    <>
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      <span>Procesando...</span>
-                    </>
-                  ) : !session ? (
-                    <span>Inicia sesión para comprar</span>
-                  ) : (
-                    <span>Completar Compra</span>
-                  )}
+                  <span>💳</span>
+                  <span>Ir a Checkout</span>
                 </button>
 
                 {!session && (
                   <p className="text-sm text-slate-500 text-center mt-3">
-                    <Link href="/login" className="text-indigo-600 hover:text-indigo-800">
+                    ¿Ya tienes cuenta?{" "}
+                    <Link href="/login?callbackUrl=/checkout" className="text-indigo-600 hover:text-indigo-800 font-medium">
                       Iniciar sesión
                     </Link>
                   </p>

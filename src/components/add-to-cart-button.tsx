@@ -1,7 +1,6 @@
 "use client";
 
 import { useCart } from "@/lib/cart-context";
-import { toast } from "sonner";
 
 interface AddToCartButtonProps {
   productId: number;
@@ -16,23 +15,18 @@ interface AddToCartButtonProps {
  * FAANG'26: "Zero Friction until Checkout"
  * - Productos públicos (cualquiera puede ver)
  * - Añadir al carrito ANÓNIMO (sin login)
- * - Carrito se guarda en localStorage
- * - Solo en CHECKOUT se requiere autenticación
+ * - El Toast ya está en el CartContext
  */
 export function AddToCartButton({ productId, productName, price, className = "" }: AddToCartButtonProps) {
   const { addItem } = useCart();
 
   const handleAddToCart = () => {
-    // Siempre añadir al carrito - sin importar si está autenticado
-    // El login solo se pide en el checkout (Auth Wall)
+    // El Toast ya está en el CartContext - no duplicar
     addItem({
       productId,
       name: productName,
       price,
     });
-    
-    // Feedback visual
-    toast.success(`${productName} añadido al carrito`);
   };
 
   return (

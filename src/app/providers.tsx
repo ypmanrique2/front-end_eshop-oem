@@ -6,7 +6,7 @@ import { ReactNode } from "react";
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
-    <SessionProvider>
+    <SessionProvider refetchInterval={60 * 5} refetchOnWindowFocus={false}>
       <CartProvider>
         {children}
       </CartProvider>

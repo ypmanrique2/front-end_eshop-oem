@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { toast } from "sonner";
 
 interface CartItem {
@@ -31,14 +31,15 @@ const SESSION_KEY = "eshop-session-id";
 /**
  * CartContext - Persistencia anónima FAANG'26
  * 
- * - Guarda en localStorage paraicarrito anónimo
+ * - Guarda en localStorage para carrito anónimo
  * - Genera un sessionId único para el usuario anónimo
- * - En checkout, el sessionId se asocia al usuario autenticado
+ * - Usa debounce para evitar toasts duplicados
  */
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [sessionId, setSessionId] = useState<string>("");
   const [isLoaded, setIsLoaded] = useState(false);
+  const toastShown = useRef<Set<string>>(new Set());
 
   // Generar sessionId único al cargar
   useEffect(() => {
@@ -71,12 +72,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items, isLoaded]);
 
+  // Función para mostrar toast sin duplicados (debounce)
+  const showToast = (key: string, message: string, type: "success" | "info" = "success") => {
+    if (toastShown.current.has(key)) return;
+    
+    toastShown.current.add(key);
+    if (type === "success") {
+      toast.success(message);
+    } else {
+      toast.info(message);
+    }
+    
+    // Limpiar el flag después de 1 segundo
+    setTimeout(() => {
+      toastShown.current.delete(key);
+    }, 1000);
+  };
+
   const addItem = (product: Omit<CartItem, "id" | "quantity">, quantity: number = 1) => {
     setItems((prev) => {
       const existingItem = prev.find((item) => item.productId === product.productId);
       
       if (existingItem) {
-        toast.success(`Cantidad actualizada en el carrito`);
+        showToast(`update-${product.productId}`, `Cantidad actualizada en el carrito`);
         return prev.map((item) =>
           item.productId === product.productId
             ? { ...item, quantity: item.quantity + quantity }
@@ -84,14 +102,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       }
       
-      toast.success(`${product.name} agregado al carrito`);
+      showToast(`add-${product.productId}`, `${product.name} agregado al carrito`);
       return [...prev, { ...product, id: Date.now(), quantity }];
     });
   };
 
   const removeItem = (productId: number) => {
     setItems((prev) => prev.filter((item) => item.productId !== productId));
-    toast.info("Producto eliminado del carrito");
+    showToast(`remove-${productId}`, "Producto eliminado del carrito", "info");
   };
 
   const updateQuantity = (productId: number, quantity: number) => {
@@ -110,7 +128,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = () => {
     setItems([]);
     localStorage.removeItem(STORAGE_KEY);
-    toast.info("Carrito limpiado");
+    showToast("clear", "Carrito limpiado", "info");
   };
 
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);

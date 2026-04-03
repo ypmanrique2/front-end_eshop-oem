@@ -1,7 +1,6 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 
 /**
@@ -11,46 +10,14 @@ import { useCallback } from "react";
  * No depende de Keycloak para el logout local
  */
 export function useLogout() {
-  const router = useRouter();
-
   const logout = useCallback(async () => {
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-    
-    // 1. PRIMERO: Cerrar sesión en NextAuth (limpia cookies locales)
-    // redirect: false para tener control total del flujo
+    // 1. Cerrar sesión en NextAuth (limpia cookies locales)
     await signOut({ 
       callbackUrl: "/", 
-      redirect: false 
+      redirect: true // Usar redirect true de NextAuth para navegar
     });
-
-    // 2. Intentar logout en Keycloak en background (no bloqueante)
-    // Si falla, no importa - ya vamos a redirigir al home
-    try {
-      const keycloakIssuer = process.env.NEXT_PUBLIC_AUTH_KEYCLOAK_ISSUER || 
-        "http://localhost:8081/realms/yadin-market";
-      
-      // Intentar logout sin depender del resultado
-      // Usar fetch para no bloquear la UI
-      fetch(`${keycloakIssuer}/protocol/openid-connect/logout`, {
-        method: 'GET',
-        redirect: 'manual', // No seguir redirects automáticamente
-      }).catch(() => {
-        // Silenciar cualquier error - no nos importa
-      });
-    } catch (error) {
-      // Silenciar errores - no afectan el flujo
-      console.debug("Keycloak logout attempt:", error);
-    }
-
-    // 3. SIEMPRE redirigir al home (fallback seguro)
-    // Esto se ejecuta sin importar si Keycloak falló
-    router.push("/");
-    
-    // Force refresh para asegurar清洁
-    setTimeout(() => {
-      router.refresh();
-    }, 100);
-  }, [router]);
+    // No necesita más lógica - NextAuth maneja la redirección
+  }, []);
 
   return { logout };
 }

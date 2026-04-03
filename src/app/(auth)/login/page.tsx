@@ -16,6 +16,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const [isLoading, setIsLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   
   // Check for error in URL and redirect back to login
   useEffect(() => {
@@ -26,24 +27,30 @@ export default function LoginPage() {
     }
   }, [searchParams, router]);
 
-  // Si ya está logueado, redirigir automáticamente
+  // Si ya está logueado, redirigir automáticamente al callbackUrl o productos
   useEffect(() => {
-    if (session) {
-      router.push("/products");
-      router.refresh();
+    // Solo redirigir si: sesión existe Y no estamos ya en proceso de redirigir
+    if (session && !isRedirecting) {
+      setIsRedirecting(true);
+      const callbackUrl = searchParams.get("callbackUrl") || "/products";
+      // Use replace to avoid adding to history stack
+      router.replace(callbackUrl);
     }
-  }, [session, router]);
+  }, [session, router, searchParams, isRedirecting]);
 
   // Mostrar loading mientras verifica sesión
-  if (status === "loading") {
+  if (status === "loading" || isRedirecting) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+          <p className="text-slate-400">Verificando sesión...</p>
+        </div>
       </div>
     );
   }
 
-  // Si ya tiene sesión, no mostrar login
+  // Si ya tiene sesión, no mostrar login (pero ya debería haber redirigido arriba)
   if (session) {
     return null;
   }
@@ -63,8 +70,9 @@ export default function LoginPage() {
   const handleOAuth2Login = async () => {
     setIsLoading(true);
     try {
+      const callbackUrl = searchParams.get("callbackUrl") || "/products";
       await signIn("keycloak", {
-        callbackUrl: "/products",
+        callbackUrl: callbackUrl,
         redirect: true,
       });
     } catch (error) {
